@@ -8,7 +8,7 @@ import enum
 import music21
 from mido import Message
 
-INPUT_FILENAME = 'input1.mid'
+INPUT_FILENAME = 'input2.mid'
 
 STYLE_MAJOR_STEPS = [0, 2, 2, 1, 2, 2, 2]
 STYLE_MINOR_STEPS = [0, 2, 1, 2, 2, 1, 2]
@@ -59,7 +59,7 @@ for msg in notes_track:
 # pprint.pprint(notes)
 
 def is_style_major(style: [int]):
-    return style[2] - style[1] == 0
+    return style[2] - style[1] == 2
 
 
 def determine_best_style(notes: Iterable[int]):
@@ -78,7 +78,7 @@ def determine_best_style(notes: Iterable[int]):
                 set(style)
             )
         )
-        print(res)
+        # print(res)
         return res
 
     possible_styles.sort(key=rate_style, reverse=True)
@@ -90,17 +90,14 @@ best_style = determine_best_style(notes)
 style_leading_note = best_style[0]
 style_is_major = is_style_major(best_style)
 
+if not style_is_major:
+    style_leading_note = (style_leading_note + 3) % 12
+
+best_style = get_style(style_leading_note, STYLE_MAJOR_STEPS if style_is_major else STYLE_MINOR_STEPS)
+
 print(style_leading_note)
 print(style_is_major)
 
-# key = music21.converter.parse(INPUT_FILENAME).analyze('key')
-# if key.mode == "minor":
-#     MUSIC_SCALE = (key.tonic.midi + 3) % 12
-# else:
-#     MUSIC_SCALE = key.tonic.midi % 12
-#
-# m21style = get_style(MUSIC_SCALE, STYLE_MAJOR_STEPS if key.mode == "major" else STYLE_MINOR_STEPS)
-# pprint.pprint(m21style)
 
 def get_consonant_chords(style: [int]) -> [[int]]:
     res = []
@@ -111,12 +108,13 @@ def get_consonant_chords(style: [int]) -> [[int]]:
 
     return res
 
+
 consonant_chords = get_consonant_chords(best_style)
 pprint.pprint(best_style)
 pprint.pprint(consonant_chords)
 
-CHORD_DURATION = mid.ticks_per_beat * 2
-
+CHORD_DURATION = mid.ticks_per_beat
+VELOCITY = 45
 
 def get_notes_amount():
     beats = 0
@@ -137,23 +135,73 @@ def get_average_octave():
     return int(avg_octave / note_count)
 
 
-average_offset = 12 * (get_average_octave() - 2)
+average_offset = 12 * (get_average_octave() - 1)
 
 chords_count = get_notes_amount()
 print(chords_count)
 
-new_track = []
+"""Get all the notes of the track, which are needed for computing the chords"""
 
+
+def compute_border_notes(track, length):
+    res = [None] * length
+    time_passed = 0
+    notes_by_start_time = dict()
+    for msg in track:
+        if type(msg) is Message:
+            time_passed += msg.time
+            if msg.type == "note_on":
+                note = msg.note % 12
+                if time_passed in notes_by_start_time:
+                    notes_by_start_time[time_passed].append(note)
+                else:
+                    notes_by_start_time[time_passed] = [note]
+
+    # TODO take next note list if no on border
+    for time in sorted(notes_by_start_time.keys()):
+        if time % CHORD_DURATION == 0:
+            res[time // CHORD_DURATION] = notes_by_start_time[time]
+    return res
+
+
+border_notes: [[int]] = compute_border_notes(mid.tracks[1], chords_count)
+pprint.pprint(border_notes, width=40)
+
+def select_best_chord(chords_list: [[int]], notes_list: [int]) -> [int]:
+    best_intersection = 0
+    best_chord = chords_list[0]
+
+    for i in chords_list:
+        l = len(set(i).intersection(set(notes_list)))
+        if l > best_intersection:
+            best_intersection = l
+            best_chord = i
+    return best_chord
+
+
+relating_notes = compute_border_notes(mid.tracks[1], chords_count)
+
+chords_sequence = []
 for i in range(chords_count):
-    chord_notes = consonant_chords[i % len(consonant_chords)]
+    if border_notes[i] is not None:
+        chord_i = select_best_chord(consonant_chords, border_notes[i])
+    else:
+        chord_i = consonant_chords[0]
+    chords_sequence.append(chord_i)
+
+new_track = []
+for i in range(chords_count):
+    # Dummy list
+    # chords_sequence = consonant_chords[i % len(consonant_chords)]
+    chord = chords_sequence[i]
 
     for j in range(3):
         new_track.append(
             Message(
                 'note_on',
                 channel=0,
-                note=chord_notes[j] + average_offset,
-                # velocity=velocity,
+                note=chord[j] + average_offset,
+                velocity=VELOCITY,
                 time=0
             ))
 
@@ -162,10 +210,10 @@ for i in range(chords_count):
             Message(
                 'note_off',
                 channel=0,
-                note=chord_notes[j] + average_offset,
-                # velocity=velocity,
+                note=chord[j] + average_offset,
+                velocity=VELOCITY,
                 time=CHORD_DURATION if j == 0 else 0
             ))
 
 mid.tracks.append(new_track)
-mid.save('my_output1.mid')
+mid.save('my_output2.mid')

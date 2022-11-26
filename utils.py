@@ -10,6 +10,17 @@ CHORD_MAJOR = [0, 4, 7]
 CHORD_MINOR = [0, 3, 7]
 CHORD_DIM = [0, 3, 6]
 
+CONSONANT_CHORDS_TYPES = [
+    CHORD_MAJOR,
+    CHORD_MINOR,
+    CHORD_MINOR,
+    CHORD_MAJOR,
+    CHORD_MAJOR,
+    CHORD_MINOR,
+    CHORD_DIM,
+]
+VELOCITY = 45
+
 def get_chord(lead_note: int, offsets: [int]):
     return [(lead_note + offsets[i]) % 12 for i in range(len(offsets))]
 
@@ -112,18 +123,6 @@ def get_track_octave(global_notes: [int]):
 def get_style(lead_note: int, is_major=True):
     offset_list = STYLE_MAJOR_STEPS if is_major else STYLE_MINOR_STEPS
     return [(lead_note + sum(offset_list[:i + 1])) % 12 for i in range(len(offset_list))]
-
-
-CONSONANT_CHORDS_TYPES = [
-    CHORD_MAJOR,
-    CHORD_MINOR,
-    CHORD_MINOR,
-    CHORD_MAJOR,
-    CHORD_MAJOR,
-    CHORD_MINOR,
-    CHORD_DIM,
-]
-VELOCITY = 45
 
 
 def determine_best_style(notes: Iterable[int]):

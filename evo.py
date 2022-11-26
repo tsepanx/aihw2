@@ -1,4 +1,6 @@
 import random
+import typing
+
 from utils import get_chord, CHORD_MAJOR, CHORD_MINOR, CHORD_DIM
 
 """
@@ -13,49 +15,50 @@ class Gene:
     """
     Represents single chord
     """
-    rating: int
 
     def __init__(self, chord_notes: [int]):
+        self.a = random.randint(0, 100)
         self.chord_notes = chord_notes
 
-    def __int__(self):
-        return self.rating
+    # def __int__(self):
+    #     return self.rating
 
     def __repr__(self):
-        return f'{self.rating}, {self.chord_notes}'
+        return f'{self.chord_notes}'
 
 
 class Chromosome:
     genes: [Gene]
-    CHROMOSOME_SIZE: int  # Count of chords in composition
     evaluation: float
+    fitness_func: typing.Callable
 
-    def __init__(self, genes=()):
-        self.genes = genes
-        self.evaluation = 0
+    def __init__(self, genes=None):
+        if genes is not None:
+            self.genes = genes
+            self.evaluation = self.fitness_func()
+        else:
+            self.evaluation = float('inf')
+            self.genes = []
 
     def crossover(self, other: 'Chromosome') -> 'Chromosome':
         child = Chromosome()
 
-        for i in range(self.CHROMOSOME_SIZE):
+        for i in range(len(self.genes)):
             g1 = self.genes[i]
             g2 = other.genes[i]
 
-            child.genes.append(random.choice((g1, g2)))
+            gene_choice = random.choice((g1, g2))
+            child.genes.append(gene_choice)
 
         return child
 
     def mutate(self, n_genes):
         for i in range(n_genes):
-            rand_ind = random.randint(0, len(self.genes))
+            rand_ind = random.randint(0, len(self.genes) - 1)
             self.genes[rand_ind] = create_random_gene()
 
-
-def fitness(c: Chromosome) -> float:
-    result = 0  # TODO
-
-    c.evaluation = 0
-    return result
+    def __repr__(self):
+        return f'{self.fitness_func()}    '
 
 
 def create_random_gene() -> Gene:
@@ -71,20 +74,17 @@ def create_random_chromosome(size: int) -> Chromosome:
     return Chromosome(genes)
 
 
-def select_best(population: [Chromosome], selection_ratio: float):
+def select_best(population: [Chromosome], selection_ratio: float, fitness_func: typing.Callable):
     selection_size = int(len(population) * selection_ratio)
 
-    c: Chromosome
-    chromosomes_scores_items = [(fitness(c), c) for c in population]
-    chromosomes_scores_items.sort(key=lambda x: x[0])
+    for i in population:
+        i.evaluation = fitness_func(i)
 
-    selected_list = chromosomes_scores_items[:selection_size]
-    return list(map(lambda x: x[1], selected_list))
+    return sorted(population, key=lambda x: x.evaluation)[:selection_size]
 
-
-def repopulate(population: [Chromosome], needed_size: int) -> [Chromosome]:
+def reproduce(population: [Chromosome], needed_count: int) -> [Chromosome]:
     children: [Chromosome] = []
-    while len(population) < needed_size:
+    while len(children) < needed_count:
         p1: Chromosome = random.choice(population)
         p2: Chromosome = random.choice(population)
         while p2 == p1:
@@ -93,7 +93,7 @@ def repopulate(population: [Chromosome], needed_size: int) -> [Chromosome]:
         child = p1.crossover(p2)
         children.append(child)
 
-    return population + children
+    return children
 
 
 def mutate(population: [Chromosome], mutation_ratio: float, genes_to_mutate: int):
@@ -110,8 +110,10 @@ def evo_algo(
         iter_count: int,
         selection_ratio: float,
         mutation_ratio: float,
-        genes_to_mutate: int
+        mutation_genes_count: int,
+        fitness_func: typing.Callable
 ) -> Chromosome:
+    Chromosome.fitness_func = fitness_func
 
     population: [Chromosome] = [
         create_random_chromosome(chromosome_size)
@@ -119,9 +121,13 @@ def evo_algo(
     ]
 
     for i in range(iter_count):
-        if population[0].evaluation >= 1:
-            return population[0]
+        mutate(population, mutation_ratio, mutation_genes_count)
+        selection: [Chromosome] = select_best(population, selection_ratio, fitness_func)
+        print(selection[0])
 
-        selection: [Chromosome] = select_best(population, selection_ratio)
-        population: [Chromosome] = repopulate(selection, population_size)
-        mutate(population, mutation_ratio, genes_to_mutate)
+        if selection[0].evaluation <= 0:
+            return selection[0]
+
+        population: [Chromosome] = reproduce(selection, population_size)
+
+    return population[0]

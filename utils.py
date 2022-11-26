@@ -10,6 +10,9 @@ CHORD_MAJOR = [0, 4, 7]
 CHORD_MINOR = [0, 3, 7]
 CHORD_DIM = [0, 3, 6]
 
+def get_chord(lead_note: int, offsets: [int]):
+    return [(lead_note + offsets[i]) % 12 for i in range(len(offsets))]
+
 def is_note_msg(msg) -> bool:
     return not msg.is_meta and 'note' in msg.__dict__
 

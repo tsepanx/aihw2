@@ -1,9 +1,9 @@
 import dataclasses
 import random
 import typing
-import mido
-
 from typing import Iterable
+
+import mido
 
 INPUT_FILENAME = 'mid/input3.mid'
 OUTPUT_FILENAME = 'mid/TsepaStepan_output3.mid'

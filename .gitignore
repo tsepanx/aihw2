@@ -1,6 +1,7 @@
 *.mid
 *.pdf
 A*.py
+T*.py
 .idea/
 __pycache__/
 

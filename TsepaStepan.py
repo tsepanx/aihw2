@@ -5,12 +5,25 @@ from typing import Iterable
 
 import mido
 
-INPUT_FILENAME = 'mid/input3.mid'
-OUTPUT_FILENAME = 'mid/TsepaStepan_output3.mid'
+INPUT_FILENAME = "mid/input3.mid"
+OUTPUT_FILENAME = "mid/TsepaStepan_output3.mid"
 
 # --- MUSIC THEORY CONSTANTS ---
 
-NOTE_REPRESENTATION_LIST = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+NOTE_REPRESENTATION_LIST = [
+    "C",
+    "C#",
+    "D",
+    "D#",
+    "E",
+    "F",
+    "F#",
+    "G",
+    "G#",
+    "A",
+    "A#",
+    "B",
+]
 
 STYLE_MAJOR_STEPS = [0, 2, 2, 1, 2, 2, 2]
 STYLE_MINOR_STEPS = [0, 2, 1, 2, 2, 1, 2]
@@ -33,30 +46,34 @@ VELOCITY = 45
 
 # --- UTILS FUNCTIONS ---
 
+
 def get_chord(lead_note: int, offsets: [int]):
     return [(lead_note + offsets[i]) % 12 for i in range(len(offsets))]
 
+
 def is_note_msg(msg) -> bool:
-    return not msg.is_meta and 'note' in msg.__dict__
+    return not msg.is_meta and "note" in msg.__dict__
+
 
 def global_notes_from_file(mid_file: mido.MidiFile):
     notes: list[int] = []
 
     for msg in mid_file.tracks[1]:
         if is_note_msg(msg):
-            is_note_on = msg.type == 'note_on'
+            is_note_on = msg.type == "note_on"
             midi_val = msg.note
 
             if not is_note_on:
                 notes.append(midi_val)
     return notes
 
+
 def save_with_chords(
-        mid: mido.MidiFile,
-        output_fname: str,
-        chords_sequence: [[int]],
-        chords_octave: int,
-        chord_length: int
+    mid: mido.MidiFile,
+    output_fname: str,
+    chords_sequence: [[int]],
+    chords_octave: int,
+    chord_length: int,
 ):
     new_track = []
     for i in range(len(chords_sequence)):
@@ -65,25 +82,28 @@ def save_with_chords(
         for j in range(3):
             new_track.append(
                 mido.Message(
-                    'note_on',
+                    "note_on",
                     channel=0,
                     note=chord[j] + chords_octave * 12,
                     velocity=VELOCITY,
-                    time=0
-                ))
+                    time=0,
+                )
+            )
 
         for j in range(3):
             new_track.append(
                 mido.Message(
-                    'note_off',
+                    "note_off",
                     channel=0,
                     note=chord[j] + chords_octave * 12,
                     velocity=VELOCITY,
-                    time=chord_length if j == 0 else 0
-                ))
+                    time=chord_length if j == 0 else 0,
+                )
+            )
 
     mid.tracks.append(new_track)
     mid.save(output_fname)
+
 
 def compute_border_notes(mid_file: mido.MidiFile, chords_count, chord_length):
     res = [None] * chords_count
@@ -106,6 +126,7 @@ def compute_border_notes(mid_file: mido.MidiFile, chords_count, chord_length):
             res[time // chord_length] = notes_by_start_time[time]
     return res
 
+
 def get_consonant_chords(style: [int]) -> [[int]]:
     res = []
     for i in range(len(CONSONANT_CHORDS_TYPES)):
@@ -115,12 +136,14 @@ def get_consonant_chords(style: [int]) -> [[int]]:
 
     return res
 
+
 def get_chords_count(mid_file: mido.MidiFile, chord_length: int):
     beats = 0
     for msg in mid_file.tracks[1]:
         if type(msg) is mido.Message:
             beats += msg.time
     return (beats + chord_length - 1) // chord_length
+
 
 def get_track_octave(global_notes: [int]):
     cnt = 0
@@ -130,12 +153,14 @@ def get_track_octave(global_notes: [int]):
         cnt += 1
     return octave // cnt
 
+
 def get_style(lead_note: int, is_major=True):
     """
     :return: get style notes by leading note and major/minor type
     """
     step_list = STYLE_MAJOR_STEPS if is_major else STYLE_MINOR_STEPS
-    return [(lead_note + sum(step_list[:i + 1])) % 12 for i in range(len(step_list))]
+    return [(lead_note + sum(step_list[: i + 1])) % 12 for i in range(len(step_list))]
+
 
 def determine_best_style(notes: Iterable[int]):
     """
@@ -153,35 +178,40 @@ def determine_best_style(notes: Iterable[int]):
         possible_styles.extend((major_style, minor_style))
 
     def rate_style(style: [int]) -> int:
-        res = len(
-            set(notes).intersection(set(style))
-        )
+        res = len(set(notes).intersection(set(style)))
         return res
 
     possible_styles.sort(key=rate_style, reverse=True)
     return possible_styles[0]
 
+
 def is_style_major(style: [int]):
     return style[2] - style[1] == 2
 
-def alter_filename_with_key(fname: str):
-    style_representation = NOTE_REPRESENTATION_LIST[style_leading_note] + ('' if style_is_major else 'm')
 
-    fname = fname[:fname.find('.')] + f'_{style_representation}.mid'
-    print('Song style: ', style_representation)
+def alter_filename_with_key(fname: str):
+    style_representation = NOTE_REPRESENTATION_LIST[style_leading_note] + (
+        "" if style_is_major else "m"
+    )
+
+    fname = fname[: fname.find(".")] + f"_{style_representation}.mid"
+    print("Song style: ", style_representation)
     return fname
 
 
 # --- EVOLUTION ALGORITHM RELATED CLASSES & FUNCS ---
 
+
 @dataclasses.dataclass
 class Gene:
     chord_notes: [int]
+
 
 class Chromosome:
     """
     Represents accompaniment
     """
+
     genes: [Gene]
     evaluation: float
     fitness_func: typing.Callable
@@ -191,10 +221,10 @@ class Chromosome:
             self.genes = genes
             self.evaluation = self.fitness_func()
         else:
-            self.evaluation = float('inf')
+            self.evaluation = float("inf")
             self.genes = []
 
-    def crossover(self, other: 'Chromosome') -> 'Chromosome':
+    def crossover(self, other: "Chromosome") -> "Chromosome":
         child = Chromosome()
 
         for i in range(len(self.genes)):
@@ -212,24 +242,29 @@ class Chromosome:
             self.genes[rand_ind] = create_random_gene()
 
     def __repr__(self):
-        return f'{round(self.fitness_func(), 5)}'
+        return f"{round(self.fitness_func(), 5)}"
 
 
 def create_random_gene() -> Gene:
     chord_notes = random.choice(consonant_chords)
     return Gene(chord_notes)
 
+
 def create_random_chromosome(size: int) -> Chromosome:
     genes = [create_random_gene() for _ in range(size)]
     return Chromosome(genes)
 
-def select_best(population: [Chromosome], selection_ratio: float, fitness_func: typing.Callable):
+
+def select_best(
+    population: [Chromosome], selection_ratio: float, fitness_func: typing.Callable
+):
     selection_size = int(len(population) * selection_ratio)
 
     for i in population:
         i.evaluation = fitness_func(i)
 
     return sorted(population, key=lambda x: x.evaluation, reverse=True)[:selection_size]
+
 
 def reproduce(population: [Chromosome], needed_count: int) -> [Chromosome]:
     children: [Chromosome] = []
@@ -244,6 +279,7 @@ def reproduce(population: [Chromosome], needed_count: int) -> [Chromosome]:
 
     return children
 
+
 def mutate(population: [Chromosome], mutation_ratio: float, genes_to_mutate: int):
     mutation_count = int(len(population) * mutation_ratio)
 
@@ -251,20 +287,20 @@ def mutate(population: [Chromosome], mutation_ratio: float, genes_to_mutate: int
     for c in to_mutate:
         c.mutate(genes_to_mutate)
 
+
 def evo_algo(
-        population_size: int,
-        chromosome_size: int,
-        iter_count: int,
-        selection_ratio: float,
-        mutation_ratio: float,
-        mutation_genes_count: int,
-        fitness_func: typing.Callable
+    population_size: int,
+    chromosome_size: int,
+    iter_count: int,
+    selection_ratio: float,
+    mutation_ratio: float,
+    mutation_genes_count: int,
+    fitness_func: typing.Callable,
 ) -> Chromosome:
     Chromosome.fitness_func = fitness_func
 
     population: [Chromosome] = [
-        create_random_chromosome(chromosome_size)
-        for _ in range(population_size)
+        create_random_chromosome(chromosome_size) for _ in range(population_size)
     ]
 
     for i in range(iter_count):
@@ -352,7 +388,7 @@ if __name__ == "__main__":
         SELECTION_RATIO,
         MUTATION_RATIO,
         MUTATION_GENES_COUNT,
-        fitness
+        fitness,
     )
 
     # Convert Chromosome to list of chord notes
@@ -366,5 +402,5 @@ if __name__ == "__main__":
         OUTPUT_FILENAME,
         chords_best_sequence,
         get_track_octave(notes) + CHORDS_OCTAVE_DELTA,
-        CHORD_LENGTH
+        CHORD_LENGTH,
     )
